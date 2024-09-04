@@ -1,6 +1,6 @@
 # **microSTRS:** ***Spatial RNA-Sequencing of Microbiome-Host Interactions at One Micron Resolution***
 In situ polyadenylation combined with Sequencing based Spatial Transcriptomics allows the mapping of Microbiome + Total Host Transcriptome
-![Microbiome_mapping Image](figures/TODO.png)
+![Microbiome_mapping Image](Figures/figure.png)
 
 ### Subdirectory descriptions:
 - `protocols`: Microsoft word and .pdf documents of the protocols used here
