@@ -1,0 +1,142 @@
+########################################################################################################
+# slide_snake
+#   Snakemake workflow to align and quantify Seeker/SlideSeq datasets
+#   Written by David McKellar
+########################################################################################################
+
+import pandas as pd
+import scipy.io
+import scipy.sparse
+
+########################################################################################################
+# Config file
+########################################################################################################
+configfile: 'config.yaml'
+RECIPE_SHEET = pd.read_csv(config["RECIPE_SHEET"], na_filter=False, index_col=0)  # "resources/recipe_sheet.csv"
+########################################################################################################
+# Directories and locations
+########################################################################################################
+TMPDIR = config['TMPDIR']
+OUTDIR = config['OUTDIR']
+
+########################################################################################################
+# Variables and references
+########################################################################################################
+SAMPLE_SHEET = pd.read_csv(config["SAMPLE_SHEET_PATH"], na_filter=False)
+SAMPLES = list(SAMPLE_SHEET['sampleID'])
+
+R1_FQS = dict(zip(SAMPLES, list(SAMPLE_SHEET['fastq_R1'])))
+R2_FQS = dict(zip(SAMPLES, list(SAMPLE_SHEET['fastq_R2'])))
+
+########################################################################################################
+# Executables
+########################################################################################################
+BWA_EXEC = config['BWA_EXEC']
+STAR_EXEC = config['STAR_EXEC']
+KALLISTO_EXEC = config['KALLISTO_EXEC']
+BUST_EXEC = config['BUST_EXEC']
+FASTQC_EXEC = config["FASTQC_EXEC"]
+CUTADAPT_EXEC = config["CUTADAPT_EXEC"]
+SAMTOOLS_EXEC = config["SAMTOOLS_EXEC"]
+UMITOOLS_EXEC = config["UMITOOLS_EXEC"]
+QUALIMAP_EXEC = config["QUALIMAP_EXEC"]
+MIRGE_EXEC = config['MIRGE_EXEC']
+BAM2SPLITBW = config["BAM2SPLITBW"]
+FASTX_COLLAPSER = config["FASTX_COLLAPSER"]
+BLASTDB = config["BLASTDB"]
+KRAKEN = config["KRAKEN"]
+KRAKEN_DB = config["KRAKEN_DB"]
+CORES = config["CORES"]
+
+########################################################################################################
+# Pre-run setup
+########################################################################################################
+# Build dictionaries of recipes & species to use for alignment
+RECIPE_DICT = {}  # Dictionary of recipes to use for each sample
+rRNA_DICT = {}  # Dictionary of rRNA reference genomes to use
+REF_DICT = {}  # Dictionary of reference genomes to use
+GTF_DICT = {}  # Dictionary of gene annotations (.gtf format)
+IDX_DICT = {}  # Dictionary of kallisto indices
+T2G_DICT = {}  # Dictionary of kallisto transcript-to-gene maps
+BB_DICT = {}  # Dictionary of bead barcode maps
+SPECIES_DICT = {}  # Species listed for mirge3 analysis
+for i in range(0, SAMPLE_SHEET.shape[0]):
+    tmp_sample = list(SAMPLE_SHEET["sampleID"])[i]
+    RECIPE_DICT[tmp_sample] = list(SAMPLE_SHEET["recipe"])[i]
+    rRNA_DICT[tmp_sample] = list(SAMPLE_SHEET["STAR_rRNA_ref"])[i]
+    REF_DICT[tmp_sample] = list(SAMPLE_SHEET["STAR_ref"])[i]
+    GTF_DICT[tmp_sample] = list(SAMPLE_SHEET["genes_gtf"])[i]
+    IDX_DICT[tmp_sample] = list(SAMPLE_SHEET["kb_idx"])[i]
+    T2G_DICT[tmp_sample] = list(SAMPLE_SHEET["kb_t2g"])[i]
+    BB_DICT[tmp_sample] = list(SAMPLE_SHEET["BB_map"])[i]
+    SPECIES_DICT[tmp_sample] = list(SAMPLE_SHEET["species"])[i]
+
+########################################################################################################
+rule all:
+    input:
+        expand(
+            '{OUTDIR}/{sample}/{REF}/Solo.out/GeneFull/raw/matrix.mtx.gz', 
+            OUTDIR=config['OUTDIR'], 
+            sample=SAMPLES, 
+            REF=["STARsolo"]
+        ), 
+        expand(
+            '{OUTDIR}/{sample}/STARsolo/Kraken_barcodes.txt.gz', 
+            OUTDIR=config['OUTDIR'], 
+            sample=SAMPLES
+        )
+
+# fastq preprocessing & QC
+include: "rules/1a_mergefqs.smk"
+include: "rules/1b_trimQC.smk"
+include: "rules/1c_split_bb.smk"
+
+# STAR alignment, QC, and post-processing
+#include: "rules/2a_rRNA_filter.smk"
+include: "rules/2b_star_align.smk"
+#include: "rules/2c_star_unmapped.smk"
+#include: "rules/2d_star_qualimap.smk"
+#include: "rules/2e_star_dedup.smk"
+
+# kallisto/bustools alignment
+#include: "rules/3a_kallisto_align.smk"
+#include: "rules/3b_kallisto_pseudobam.smk"
+
+# small RNA stuff
+#include: "rules/4_mirge.smk"
+
+# scanpy stuff
+#include: "rules/4a_scanpy_init.smk"
+
+# Post-processing, prep for downstream analyses
+#TODO:
+# - Initialize a .h5ad object for easy loading into python later
+#   - Add spatial location!
+# - Add proper saturation estimation (not just saturation based on reads aligning to known genes)
+
+########################################################################################################
+# New rules
+########################################################################################################
+
+rule getUnmappedReads:
+    input:'{OUTDIR}/{sample}/STARsolo/Aligned.sortedByCoord.out.bam',
+    params: krakenDB = KRAKEN_DB
+    output:
+        one = '{OUTDIR}/{sample}/STARsolo/possorted_bam_kraken2.out.gz',
+        two = '{OUTDIR}/{sample}/STARsolo/kraken'
+    threads: CORES
+    shell:
+        """
+        {KRAKEN} --use-names --db {params.krakenDB} --minimum-hit-groups 3 --report {output.two} --use-mpa-style <(samtools view -b -f 4 {input} | samtools fasta) | gzip > {output.one}
+        """
+
+rule unmappedBarcodes:
+    input:
+        bam = '{OUTDIR}/{sample}/STARsolo/Aligned.sortedByCoord.out.bam',
+        kraken = '{OUTDIR}/{sample}/STARsolo/possorted_bam_kraken2.out.gz'
+    output: '{OUTDIR}/{sample}/STARsolo/Kraken_barcodes.txt.gz'
+    threads: CORES
+    shell:
+        """
+        paste <(zcat {input.kraken}) <(samtools view -f 4 {input.bam} | grep -o -P '(?<=CB:Z:).*(?=UB:Z:)') <(samtools view -f 4 {input.bam} | grep -o -P '(?<=UB:Z:).*') | gzip > {output}
+        """

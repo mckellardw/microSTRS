@@ -1,0 +1,2 @@
+sampleID,fastq_R1,fastq_R2,BB_map,chemistry,STAR_ref,genes_gtf,kb_idx,kb_t2g
+sample1,/workdir/in68/microSTRS/data/BGI/E100067720_L01_99_1.fq.gz,/workdir/in68/microSTRS/data/BGI/E100067720_L01_99_1.fq.gz,/workdir/in68/microSTRS/data/A02095B2.barcodeToPos.txt,stomics_noTrim_total,/workdir/in68/references/GRCm38/Star_indices,/workdir/in68/references/GRCm38/gencode/gencode.vM21.annotation.gtf,/complete/path/to/reference/directory/kallisto_GRCm39_GENCODEM28/genome.idx,/complete/path/to/reference/directory/kallisto_GRCm39_GENCODEM28/ixed_t2g.txt
