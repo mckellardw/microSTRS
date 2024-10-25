@@ -9,7 +9,6 @@ The following software and packages were used to run this project:
 - **Python** - Version 3.9.17
 - **Snakemake** - Version 6.1.0
 - **STAR** - Version 2.7.10a
-- **STARSolo** - Specific CellRanger4 parameters used (version not specified)
 - **Kraken2** - Version 2.09
 - **Pandas** - Version 2.1.3
 - **Scanpy** - Version 1.9.3
