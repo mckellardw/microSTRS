@@ -1,0 +1,5 @@
+SampleID,KrakenFilePath,SpatialCoordsPath,SavePath
+STRS_lyso_1,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_A1_solo/Kraken_barcodes.txt.gz,/workdir/lt425/202403_visium/visium-v1_coordinates.txt,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_A1_solo/microbe.h5ad
+STRS_lyso_2,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_B1_solo/Kraken_barcodes.txt.gz,/workdir/lt425/202403_visium/visium-v1_coordinates.txt,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_B1_solo/microbe.h5ad
+STRS_1,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_C1_solo/Kraken_barcodes.txt.gz,/workdir/lt425/202403_visium/visium-v1_coordinates.txt,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_C1_solo/microbe.h5ad
+STRS_2,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_D1_solo/Kraken_barcodes.txt.gz,/workdir/lt425/202403_visium/visium-v1_coordinates.txt,/workdir/in68/microSTRS/results_out_Feb23/KrakenDB/Full_Sample_D1_solo/microbe.h5ad
