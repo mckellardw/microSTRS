@@ -33,3 +33,5 @@ Data will be made available upon publication under GEO accession numbers; GSE276
 - Yannis Ntekas (in68@cornell.edu)
 - Lena Takayasu (lt425@cornell.edu)
 - David W. McKellar (dmckellar@nygenome.org)
+
+The pipeline is in active developement if you have issues/suggestions please contact us! 
