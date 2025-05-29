@@ -9,6 +9,13 @@ import scanpy as sc
 from scipy.sparse import issparse
 from typing import Optional
 import anndata as ad
+import json
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+import seaborn as sns
+from scipy.cluster.hierarchy import linkage, leaves_list
+from scipy.sparse import issparse
+from scipy.spatial import distance_matrix
 
 def add_spatial_coordinates(adata, csv_path):
     """
@@ -160,7 +167,237 @@ def add_biotypes_pct(
 
     return adata
 
+## Add location classification from manual spot annotations json
+def add_histology_info_visium(json_files, barcode_file):
+    # Read barcode information from text file
+    barcode_data = {}
+    with open(barcode_file, 'r') as f:
+        for line in f:
+            parts = line.strip().split('\t')
+            barcode_data[(int(parts[1]), int(parts[2]))] = parts[0]
 
+    # Initialize dictionary to store barcode presence in each region
+    barcode_presence = {barcode: {'A': False, 'B': False, 'C': False} for barcode in barcode_data.values()}
+
+    # Process each JSON file
+    for region, json_file in enumerate(json_files, start=ord('A')):
+        # Load JSON data from file
+        with open(json_file, 'r') as f:
+            json_data = json.load(f)
+        
+        # Filter the list of dictionaries to include only those with tissue: True
+        tissue_data = json_data['oligo']
+        tissue_data = [d for d in tissue_data if d.get('tissue') == True]
+
+        # Update barcode presence based on tissue data
+        for d in tissue_data:
+            row_col_pair = (d['col'], d['row'])
+            if row_col_pair in barcode_data:
+                barcode = barcode_data[row_col_pair]
+                barcode_presence[barcode][chr(region)] = True
+
+    # Ensure all barcodes are included in the DataFrame, with False where not present
+    all_barcodes = list(barcode_data.values())
+    for barcode in all_barcodes:
+        if barcode not in barcode_presence:
+            barcode_presence[barcode] = {'A': False, 'B': False, 'C': False}
+
+    # Convert barcode presence dictionary to DataFrame
+    df = pd.DataFrame.from_dict(barcode_presence, orient='index')
+    
+    return df
+
+# Functions to extract microbial counts for a given experiment dict 
+# Experiment dictionary
+# Experiment_dict = {
+#     "CTL": ["Visium_heart", "STRS_heart"], 
+#     "PS": ["Visium_A", "STRS_A"],
+#     "IL": ["Visium_B", "STRS_B"], 
+#     "CEC": ["Visium_D", "STRS_D"],
+#     "CO": ["Visium_C", "STRS_C"]
+# }
+def extract_data(mudata_dict, experiment_dict):
+    data_list = []
+
+    for experiment, samples in experiment_dict.items():
+        for sample in samples:
+            mudata = mudata_dict[sample]  # Retrieve MuData object
+            sample_type = 'STRS' if 'STRS' in sample else 'Visium'
+
+            # Extract 'Total_counts' from 'family' modality and 'Total_molecules_detected' from 'host' modality
+            genus_total_counts = mudata.mod['family'].obs['Total_counts_classified']
+            host_total_molecules_detected = mudata.mod['host'].obs['Total_molecules_detected']
+            
+            # Create a DataFrame with the data
+            combined_df = pd.DataFrame({
+                'Total_counts': genus_total_counts,
+                'Total_molecules_detected': host_total_molecules_detected
+            })
+            
+            # Add experiment and type information
+            combined_df['Experiment'] = experiment
+            combined_df['Type'] = sample_type
+            combined_df['Sample'] = sample
+
+            data_list.append(combined_df)
+
+    combined_df = pd.concat(data_list, axis=0)
+    return combined_df
+
+# Function to filter data based on classification classification C is for spots covered with Tissue based on the histology
+def filter_data(combined_df, mudata_dict):
+    filtered_data_list = []
+
+    for sample in combined_df['Sample'].unique():
+        mudata = mudata_dict[sample]  # Retrieve MuData object
+
+        # Filter the values where classification_C is True
+        classification_C = mudata.mod['host'].obsm['classification']['C']
+        filter_condition = classification_C
+        
+        # Apply the filter condition to the DataFrame
+        sample_data = combined_df[combined_df['Sample'] == sample]
+        filtered_data = sample_data[filter_condition.values]
+        
+        filtered_data_list.append(filtered_data)
+
+    filtered_combined_df = pd.concat(filtered_data_list, axis=0)
+    return filtered_combined_df
+## Functions to extract and filter and make my life easier for now -- for the boxplots
+def extract_feature_data(mudata_dict, experiment_dict, feature):
+    data_list = []
+
+    for experiment, samples in experiment_dict.items():
+        for sample in samples:
+            mudata = mudata_dict[sample]  # Retrieve MuData object
+            sample_type = 'STRS' if 'STRS' in sample else 'Visium'
+
+            # Extract the feature from 'host' modality
+            feature_data = mudata.mod['host'].obs[feature]
+            
+            # Create a DataFrame with the feature data
+            combined_df = pd.DataFrame({
+                feature: feature_data
+            })
+            
+            # Add experiment and type information
+            combined_df['Experiment'] = experiment
+            combined_df['Type'] = sample_type
+            combined_df['Sample'] = sample
+
+            data_list.append(combined_df)
+
+    combined_df = pd.concat(data_list, axis=0)
+    return combined_df
+## Filter the data to keep spots covered by Tissue  (~classification_B) & (classification_C)
+def filter_feature_data(combined_df, mudata_dict, feature):
+    filtered_data_list = []
+
+    for sample in combined_df['Sample'].unique():
+        mudata = mudata_dict[sample]
+        host_obs = mudata.mod['host'].obs
+
+        # Get classification filters (must be same index as host.obs)
+        classification_B = mudata.mod['host'].obsm['classification']['B']
+        classification_C = mudata.mod['host'].obsm['classification']['C']
+        filter_condition = (~classification_B) & (classification_C)
+
+        # Get the subset of combined_df corresponding to this sample
+        sample_df = combined_df[combined_df['Sample'] == sample].copy()
+
+        # Align the sample_df to the index of host.obs (which is also index of filter_condition)
+        # This assumes combined_df uses the same index as mudata.mod['host'].obs
+        aligned_df = sample_df.loc[filter_condition.index.intersection(sample_df.index)]
+
+        # Now apply the filter condition
+        filtered_data = aligned_df.loc[filter_condition.loc[aligned_df.index]]
+        filtered_data_list.append(filtered_data)
+
+    filtered_combined_df = pd.concat(filtered_data_list, axis=0).reset_index(drop=True)
+    return filtered_combined_df
+
+def calculate_statistics(filtered_combined_df, feature):
+    # Calculate statistics for each sample
+    sample_stats = filtered_combined_df.groupby(['Experiment', 'Type', 'Sample'])[feature].agg(['mean', 'median', 'std']).reset_index()
+    
+    # Calculate statistics across Type (excluding Control)
+    group_stats = filtered_combined_df[filtered_combined_df['Experiment'] != "CTL"].groupby('Type')[feature].agg(['mean', 'median']).reset_index()
+    
+    return sample_stats, group_stats
+
+def calculate_distances_and_bins(mudata_dict, sample, modality, num_bins):
+    """
+    Assigns each spatial spot to a bin based on its distance to the lumen (C but not B spots are distance=0).
+    """
+    adata = mudata_dict[sample][modality]
+    classification_B = adata.obsm['classification']['B']
+    classification_C = adata.obsm['classification']['C']
+
+    coords = adata.obsm['spatial']
+    B_coords = coords[classification_B]
+    C_not_B_coords = coords[classification_C & ~classification_B]
+
+    if len(B_coords) > 0 and len(C_not_B_coords) > 0:
+        dist_matrix = distance_matrix(B_coords, C_not_B_coords)
+        min_distances = dist_matrix.min(axis=1)
+
+        B_barcodes = adata.obs.index[classification_B]
+        distance_B_df = pd.DataFrame(min_distances, index=B_barcodes, columns=['min_distance'])
+
+        C_not_B_barcodes = adata.obs.index[classification_C & ~classification_B]
+        distance_C_not_B_df = pd.DataFrame(0, index=C_not_B_barcodes, columns=['min_distance'])
+
+        distance_df = pd.concat([distance_B_df, distance_C_not_B_df])
+        distance_df['min_distance'] = np.clip(distance_df['min_distance'], a_min=0, a_max=None)
+
+        distance_df['bin'] = pd.cut(distance_df['min_distance'], bins=num_bins-1, labels=range(1, num_bins))
+        distance_df['bin'] = distance_df['bin'].astype('category').cat.set_categories(range(num_bins))
+        distance_df.loc[C_not_B_barcodes, 'bin'] = 0
+
+        adata.obs['bin'] = distance_df['bin']
+        return adata
+    else:
+        return adata
+    
+# Calculate relative abundances
+def calculate_relative_abundances(adata, genes):
+    adata = adata[adata.obsm['classification']['C']]
+    X = adata.X  # Expression data matrix
+    var_names = adata.var_names  # Gene names
+    expression_data = pd.DataFrame(X.toarray() if issparse(X) else X, index=adata.obs.index, columns=var_names)
+    expression_data['location'] = adata.obs['location']
+    aggregated_expression = expression_data.groupby('location').sum()
+    proportions = aggregated_expression.div(aggregated_expression.sum(axis=1), axis=0).fillna(0)
+    
+    # Filter out taxa below 2% and group them into 'Other'
+    if 'unclassified' in proportions.columns:
+        proportions['Other'] = proportions.pop('unclassified')
+    else:
+        proportions['Other'] = 0
+
+    taxa_to_keep = proportions.columns[(proportions.max(axis=0) >= 0.02)]
+    proportions['Other'] += 1 - proportions[taxa_to_keep].sum(axis=1)
+    proportions = proportions[taxa_to_keep]
+    
+    return proportions
+
+# Extract unique taxa per spot
+def get_unique_taxa_data(mudata_dict, samples):
+    unique_taxa_data = {}
+    for sample in samples:
+        ## Add a filter to exclude lowly occuring taxa before calculating Richness
+        adata = mudata_dict[sample]['genus'].copy()
+        adata.X = adata.raw.X
+        adata = adata[adata.obsm['classification']['C']]
+        taxa_counts = adata.X.sum(axis=0) / adata.obs['Total_counts'].sum()
+        mask = taxa_counts > 0.0001
+        adata = adata[:,mask]
+        spots = adata.X > 0 
+        adata.obs['unique_taxa_per_spot'] = spots.sum(axis=1)
+        
+ 
+        unique_taxa_data[sample] = adata.obs['unique_taxa_per_spot'].values
+    return unique_taxa_data
 
 
 # Example of how to import and use these functions from a .py script
