@@ -17,7 +17,7 @@ The following software and packages were used to run this project:
 - **MuData** 
 - **Muon** 
 - **cell2location** - Version 0.1.3
-- **ST_BarcodeMap** - (linked to GitHub; no specific version required)
+- **ST_BarcodeMap** 
 - **anndata** - Version 0.10.3
 
 

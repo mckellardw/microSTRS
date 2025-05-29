@@ -1,0 +1,8 @@
+SampleID,KrakenFilePath,SpatialCoordsPath,SavePath
+C311,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03259C311.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
+G511,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03254G511.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
+F614,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03258F614.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
+E312,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03255E312.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
+D611,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03258D611.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
+D112,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03255D112.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
+F312,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/Kraken_barcodes.txt.gz,/fs/cbsuvlaminck5/workdir/in68/Utils/StereoSeq_masks/D03252F312.barcodeToPos.txt,/fs/cbsuvlaminck5/workdir/in68/microSTRS/out/D112/STARsolo/microbe.h5ad
